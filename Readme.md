@@ -1,8 +1,15 @@
-# Getting Started
+# 支付宝密钥说明
 
-### Reference Documentation
-For further reference, please consider the following sections:
+商户应用私钥
 
-* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
-* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/docs/2.2.2.RELEASE/maven-plugin/)
+商户应用公钥
 
+支付宝公钥
+
+支付宝私钥（看不到）
+
+## 发起支付
+商户（商户应用私钥签名）-> 支付宝（商户应用公钥验签）
+
+## 异步通知
+支付宝（支付宝私钥签名）-> 商户（支付宝公钥验签）

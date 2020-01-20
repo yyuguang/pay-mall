@@ -1,12 +1,17 @@
 package com.lnzz.service.impl;
 
-import com.lly835.bestpay.config.WxPayConfig;
+import com.lly835.bestpay.enums.BestPayPlatformEnum;
 import com.lly835.bestpay.enums.BestPayTypeEnum;
+import com.lly835.bestpay.enums.OrderStatusEnum;
 import com.lly835.bestpay.model.PayRequest;
 import com.lly835.bestpay.model.PayResponse;
-import com.lly835.bestpay.service.impl.BestPayServiceImpl;
+import com.lly835.bestpay.service.BestPayService;
+import com.lnzz.dao.PayInfoMapper;
+import com.lnzz.enums.PayPlatformEnum;
+import com.lnzz.pojo.PayInfo;
 import com.lnzz.service.IPayService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,24 +27,66 @@ import java.math.BigDecimal;
 @Slf4j
 @Service
 public class PayServiceImpl implements IPayService {
-    @Override
-    public void create(String orderId, BigDecimal amount) {
-        WxPayConfig wxPayConfig = new WxPayConfig();
-        wxPayConfig.setAppId("wxd898fcb01713c658");
-        wxPayConfig.setMchId("1483469312");
-        wxPayConfig.setMchKey("098F6BCD4621D373CADE4E832627B4F6");
-        wxPayConfig.setNotifyUrl("http://127.0.0.1");
+    @Autowired
+    private BestPayService bestPayService;
+    @Autowired
+    private PayInfoMapper payInfoMapper;
 
-        BestPayServiceImpl bestPayService = new BestPayServiceImpl();
-        bestPayService.setWxPayConfig(wxPayConfig);
+    @Override
+    public PayResponse create(String orderId, BigDecimal amount, BestPayTypeEnum bestPayTypeEnum) {
+        //写入数据库
+        PayInfo payInfo = new PayInfo(Long.parseLong(orderId),
+                PayPlatformEnum.getByBestPayTypeEnum(bestPayTypeEnum).getCode(),
+                OrderStatusEnum.NOTPAY.name(),
+                amount);
+        payInfoMapper.insertSelective(payInfo);
 
         PayRequest request = new PayRequest();
         request.setOrderName("4559066-最好的支付sdk");
-        request.setOrderId("123456789123458");
-        request.setOrderAmount(0.01);
-        request.setPayTypeEnum(BestPayTypeEnum.WXPAY_NATIVE);
+        request.setOrderId(orderId);
+        request.setOrderAmount(amount.doubleValue());
+        request.setPayTypeEnum(bestPayTypeEnum);
 
         PayResponse response = bestPayService.pay(request);
-        log.info("response={}", response);
+        log.info("发起支付 response={}", response);
+        return response;
+    }
+
+    @Override
+    public String asyncNotify(String notifyData) {
+        //1.签名校验
+        PayResponse payResponse = bestPayService.asyncNotify(notifyData);
+        log.info("payResponse={}", payResponse);
+        //2.金额校验
+        PayInfo payInfo = payInfoMapper.selectByOrderNo(Long.parseLong(payResponse.getOrderId()));
+        if (payInfo == null) {
+            throw new RuntimeException("查询orderNo结果为null！");
+        }
+        if (!payInfo.getPlatformStatus().equals(OrderStatusEnum.SUCCESS.name())) {
+            if (payInfo.getPayAmount().compareTo(BigDecimal.valueOf(payResponse.getOrderAmount())) != 0) {
+                throw new RuntimeException("金额与数据库不一致，orderNo=" + payResponse.getOrderId());
+            }
+
+            //3. 修改订单支付状态
+            payInfo.setPlatformStatus(OrderStatusEnum.SUCCESS.name());
+            payInfo.setPlatformNumber(payResponse.getOutTradeNo());
+            payInfoMapper.updateByPrimaryKeySelective(payInfo);
+        }
+
+        //4. 告诉微信/支付宝不要再通知了
+        if (payResponse.getPayPlatformEnum() == BestPayPlatformEnum.WX) {
+            return "<xml>\n" +
+                    "  <return_code><![CDATA[SUCCESS]]></return_code>\n" +
+                    "  <return_msg><![CDATA[OK]]></return_msg>\n" +
+                    "</xml>";
+        } else if (payResponse.getPayPlatformEnum() == BestPayPlatformEnum.ALIPAY) {
+            return "success";
+        }
+        throw new RuntimeException("异步通知中错误的支付平台");
+    }
+
+    @Override
+    public PayInfo queryByOrderId(String orderId) {
+        return payInfoMapper.selectByOrderNo(Long.parseLong(orderId));
     }
 }

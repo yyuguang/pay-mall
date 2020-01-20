@@ -58,4 +58,12 @@ public interface PayInfoMapper {
      * @return
      */
     int updateByPrimaryKey(PayInfo record);
+
+    /**
+     * selectByOrderNo
+     *
+     * @param orderNo
+     * @return
+     */
+    PayInfo selectByOrderNo(Long orderNo);
 }
