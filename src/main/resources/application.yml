@@ -4,6 +4,12 @@ spring:
     url: jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
     username: root
     password: root
+  rabbitmq:
+    addresses: 182.61.1.209
+    port: 5672
+    username: guest
+    password: guest
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
@@ -26,3 +32,4 @@ alipay:
   publicKey: "yours"
   notifyUrl: http://qvrbfn.natappfree.cc/pay/notify
   returnUrl: http://127.0.0.1
+  © 2020 GitHub, Inc.
