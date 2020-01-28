@@ -24,7 +24,7 @@ import java.util.Map;
  * @Description:
  */
 @Controller
-@RequestMapping("/pay")
+@RequestMapping("/api/pay")
 @Slf4j
 public class PayController {
     @Autowired
